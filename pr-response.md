@@ -1,7 +1,16 @@
 # PR Response Doc — CineLog Watchlist Feature
 
 ## AI Usage
-<!-- Fill in at the end — how you used AI tools during this project -->
+
+Used Claude throughout for: understanding the codebase before touching
+review comments (tracing add_to_collection()'s pattern, the models,
+test structure); working through Comments 4 and 5 by being asked
+follow-up questions rather than given answers, which pushed me to
+articulate my own reasoning (the video-store analogy and the
+guilty-pleasure-films point in Comment 4 were mine, refined through
+that back-and-forth); and git troubleshooting during the interactive
+rebase, including recovering from a rebase mistake using git reflog
+after a --root rebase accidentally moved HEAD unexpectedly.
 
 ## Comment 1 — Rename
 
@@ -47,4 +56,47 @@ The bigger issue wasn't a conflict git flagged at all: main's UUID refactor comm
 **How I verified no conflict remains:** Ran `pytest tests/ -v` after the rebase - all 5 tests passed. This caught the missing `WatchlistEntry` class immediately (ImportError on collection), which a clean `git rebase` output alone would not have revealed.
 
 ## PR Description
-<!-- Written at the end — feature overview, design decisions, manual testing steps -->
+
+Adds a watchlist feature to CineLog — users can save films they want to
+watch later, separate from their collection of films already watched.
+
+**What it does:**
+- New `WatchlistEntry` model, linked to `User` and `Film`
+- `add_to_watchlist(user_id, film_id)` — adds a film to a user's
+  watchlist, following the same `verb_to_noun` convention and
+  duplicate-prevention pattern as `add_to_collection()`
+- `GET /watchlist/<user_id>` — returns a user's watchlist
+- `POST /watchlist/<user_id>/add` — adds a film to a user's watchlist
+
+**Design decisions:**
+- **Default visibility:** watchlists default to `public=False` (private).
+  Adding a film is a personal act, not a social one — defaulting private
+  respects that and lets users opt into sharing deliberately, rather than
+  assuming visibility they never chose. Full reasoning in `pr-response.md`.
+- **Sort order:** watchlists are sorted by `date_added`, newest first,
+  rather than alphabetically. This matches how users actually engage with
+  a watchlist — a recently added film is more likely to be top of mind.
+  Full reasoning in `pr-response.md`.
+
+**How to manually test:**
+1. `python app.py`
+2. In `flask shell`, create a user and film if the DB is empty:
+```python
+   from models import User, Film
+   from app import db
+   u = User(username="tester", email="tester@example.com")
+   f = Film(title="Test Film", year=2020, genre="Drama")
+   db.session.add_all([u, f])
+   db.session.commit()
+   print(u.id, f.id)
+```
+3. `POST /watchlist/<user_id>/add` with body `{"film_id": "<film_id>"}`
+   — should return `201` with the new entry.
+4. Repeat the same request — should raise `AlreadyInWatchlistError`,
+   confirming no duplicate is created.
+5. `GET /watchlist/<user_id>` — should return the film, sorted by most
+   recently added first.
+6. Run `pytest tests/ -v` — all tests should pass, including
+   `test_add_to_watchlist_nonexistent_film_raises`.
+
+   ![git log --oneline showing 9 clean commits](screenshots/git-log.png)
