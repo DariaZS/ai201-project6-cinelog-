@@ -38,9 +38,13 @@
 **Engagement with reviewer's point:** I agree directly with @dev-lead's reasoning - "most users wantt to see what they added recently" matches how I'd actually use this feature myself. I'll note one nuance: there's a separate, real use case for browsing older, buried entries when a user is feeling picky rather than decisive - but that's a browsing behavior, not a default-view behavior. Newest-first should remain the default; a future alphabetical or "surprise me" view could serve that browsing case without changing what a user sees on first load.
 
 ## Comment 6 — Rebase
-**What conflicted:**
-**How I resolved it:**
-**How I verified no conflict remains:**
+
+**What conflicted:** Running `git rebase origin/main` hit one real conflict, in `.gitignore` (main had added a `.pytest_cache/` line mine don't have) - resolved by keeping both sets of entries.
+The bigger issue wasn't a conflict git flagged at all: main's UUID refactor commit rewrote `models.py` from scratch, and since `WatchlistEntry` only ever existed on my branch, the rebase siletnly dropped it - no conflict maker, just a missing class. I only caught this by running the full test suite after rebasing and getting an ImportError.
+
+**How I resolved it:** Re-added `WatchlistEntry` to `models.py`, using `db.String(36)` for `film_id` to match the new UUID convention (was `db.Integer`). Also updated `services/watchlist_service.py`'s docstring, which still said "integer - pre-factor," and fixed `tests/test_watchlist.py`'s `fake_film_id` from an integer (9999999) to a UUID-shaped string, matching the pattern in `test_collection.py`.
+
+**How I verified no conflict remains:** Ran `pytest tests/ -v` after the rebase - all 5 tests passed. This caught the missing `WatchlistEntry` class immediately (ImportError on collection), which a clean `git rebase` output alone would not have revealed.
 
 ## PR Description
 <!-- Written at the end — feature overview, design decisions, manual testing steps -->
